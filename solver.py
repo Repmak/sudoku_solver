@@ -3,6 +3,7 @@ from typing import overload, Optional
 from SudokuCell import SudokuCell
 from HouseNum import HouseNum
 from HouseType import HouseType
+from utils import HOUSE_CELL_COORD_MAP
 
 class SudokuSolver:
     def __init__(self):
@@ -14,38 +15,26 @@ class SudokuSolver:
 
     def setup_board(self, givens):
         # Reset board.
-        self.board = [[SudokuCell(row, col, '-') for col in range(9)] for row in range(9)]
+        self.board = [[SudokuCell(row, col, 0) for col in range(9)] for row in range(9)]
         # Fill in the board with given values.
         for cell in givens:
-            self.board[cell[0]][cell[1]] = cell[2]
+            self.board[cell[0]][cell[1]].set_value(cell[2])
         # solve() can be called now.
         self.setup_complete = True
 
     def is_complete(self):
         to_compare = {i for i in range(1, 10)}
-        for i in range(9):
-            seen_row = set()
-            seen_col = set()
-            seen_box = set()
 
-            for j in range(9):
-                if self.board[i][j] in seen_row: return False
-                seen_row.add(self.board[i][j])
-            if seen_row != to_compare: return False
+        for ht in HouseType:
+            for hn in HouseNum:
+                seen = set()
 
-            for j in range(9):
-                if self.board[j][i] in seen_col: return False
-                seen_col.add(self.board[j][i])
-            if seen_col != to_compare: return False
+                for row, col in HOUSE_CELL_COORD_MAP[(ht, hn)]:
+                    val = self.board[row][col].get_value()
+                    if self.board[row][col] in seen: return False
+                    seen.add(val)
 
-            box_row_start = (i // 3) * 3
-            box_col_start = (i % 3) * 3
-            for j in range(9):
-                row_idx = box_row_start + (j // 3)
-                col_idx = box_col_start + (j % 3)
-                if self.board[row_idx][col_idx] in seen_box: return False
-                seen_box.add(self.board[row_idx][col_idx])
-            if seen_box != to_compare: return False
+                if seen != to_compare: return False
 
         return True
 
@@ -72,11 +61,11 @@ class SudokuSolver:
         Implementation for the naked subset technique.
 
         A naked single occurs when a cell that has a single candidate number remaining.
-        A naked pair occurs when 2 cells in a house share the same 2 candidates.
-        A naked triple occurs when 3 cells in a house share the same 3 candidates.
+        A naked pair occurs when 2 cells in a house share the same 2 __candidates.
+        A naked triple occurs when 3 cells in a house share the same 3 __candidates.
         Etc.
 
-        :param n: The size of the naked set of candidates.
+        :param n: The size of the naked set of __candidates.
         :param house_num:
         :param house_type:
         :return:
@@ -85,7 +74,6 @@ class SudokuSolver:
             # Aimlessly search for a naked set.
             return
 
-        # Only 1 possible candidate for a cell.
         for i in range(9):
             pass
 
@@ -103,11 +91,11 @@ class SudokuSolver:
     #         pass
     #
     # def naked_pair(self):
-    #     # 2 possible candidates across 2 cells.
+    #     # 2 possible __candidates across 2 cells.
     #     pass
     #
     # def naked_triple(self):
-    #     # 3 possible candidates across 3 cells.
+    #     # 3 possible __candidates across 3 cells.
     #     pass
     #
     # def naked_quad(self):
@@ -125,11 +113,11 @@ class SudokuSolver:
         Implementation for the hidden subset technique.
 
         A hidden single occurs when a candidate appears only once in a house.
-        A hidden pair occurs when 2 candidates appear within the same 2 cells of a house.
-        A hidden triple occurs when 3 candidates appear within the same 3 cells of a house.
+        A hidden pair occurs when 2 __candidates appear within the same 2 cells of a house.
+        A hidden triple occurs when 3 __candidates appear within the same 3 cells of a house.
         Etc.
 
-        :param n: The size of the hidden set of candidates.
+        :param n: The size of the hidden set of __candidates.
         :param house_num:
         :param house_type:
         :return:
