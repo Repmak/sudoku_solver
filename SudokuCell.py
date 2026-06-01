@@ -7,7 +7,7 @@ class SudokuCell:
         self.__candidates = set()  # The set of valid digits for this cell.
 
     def __str__(self):
-        return f"Row: {self.__row}, Col: {self.__col}, Value: {self.__value}, Candidates: {self.__candidates}"
+        return f"Position: ({self.__row + 1}, {self.__col + 1}), Value: {self.__value}, Candidates: {self.__candidates}"
 
     def get_value(self) -> int:
         return self.__value
