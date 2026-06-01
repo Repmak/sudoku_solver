@@ -5,6 +5,8 @@ from HouseNum import HouseNum
 from HouseType import HouseType
 from utils import HOUSE_CELL_COORD_MAP
 
+EMPTY_CELL = 0
+
 class SudokuSolver:
     def __init__(self):
         self.board = []  # The current state of the board.
@@ -15,7 +17,7 @@ class SudokuSolver:
 
     def setup_board(self, givens):
         # Reset board.
-        self.board = [[SudokuCell(row, col, 0) for col in range(9)] for row in range(9)]
+        self.board = [[SudokuCell(row, col, EMPTY_CELL) for col in range(9)] for row in range(9)]
         # Fill in the board with given values.
         for cell in givens:
             self.board[cell[0]][cell[1]].set_value(cell[2])
