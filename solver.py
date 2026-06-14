@@ -205,7 +205,13 @@ class SudokuSolver:
 
         if house_num is not None and house_type is not None and cell is None:
             # First overload.
-            pass
+            empty_cells = {
+                self._board[row][col]
+                for row, col in HOUSE_COORDS_MAP[(house_num, house_type)]
+                if self._board[row][col].is_empty()
+            }
+            already_used_in_subset = set()  # Cells that have been added to a naked subset.
+            modified_cells = set()  # Cells whose candidates have been modified as a consequence of finding a naked subset.
 
         elif house_num is None and house_type is None and cell is not None:
             # Second overload.
