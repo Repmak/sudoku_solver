@@ -11,6 +11,12 @@ class TestSum(unittest.TestCase):
         with self.assertRaises(ValueError):
             solver.solve()
 
+    def test_invalid_givens(self):
+        solver = SudokuSolver()
+        with self.assertRaises(ValueError):
+            solver.setup_board("givens")
+
+
     # def board_set_up_board(self):
     #     expected = '''
     #         \n
