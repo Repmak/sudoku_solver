@@ -15,7 +15,7 @@ class SudokuSolver:
         self._setup_complete = False
 
     def __str__(self):
-        return "\n".join([" ".join([str(cell.get_value() if not cell.is_empty() else " ") for cell in row]) for row in self._board])
+        return "\n".join([" ".join([str(cell.get_value() if not cell.is_empty() else ".") for cell in row]) for row in self._board])
 
     def get_board(self):
         return self._board
@@ -90,19 +90,7 @@ class SudokuSolver:
                     self._board[row][col].remove_candidates(cell.get_candidates())
         cell.set_value(list(cell.get_candidates())[0])
 
-    @overload
-    def naked_subset(self, house_num: HouseNum, house_type: HouseType) -> set[SudokuCell]: ...
-    @overload
-    def naked_subset(self, cell: SudokuCell) -> set[SudokuCell]: ...
-    @overload
-    def naked_subset(self, house_type: HouseType, cell: SudokuCell) -> set[SudokuCell]: ...
-
-    def naked_subset(
-        self,
-        house_num: Optional[HouseNum] = None,
-        house_type: Optional[HouseType] = None,
-        cell: SudokuCell = None
-    ) -> set[SudokuCell]:
+    def naked_subset(self, *args, **kwargs) -> set[SudokuCell]:
         """
         Implementation for the naked subset technique.
 
@@ -116,8 +104,8 @@ class SudokuSolver:
         :param cell: To identify the houses of the cell to search.
         :return: The cell(s) whose candidates have been modified as a consequence of finding a distinct set of cells which form a naked subset.
         """
-        if house_num is not None and house_type is not None and cell is None:
-            # First overload.
+        if len(args) == 2 and isinstance(args[0], HouseNum) and isinstance(args[1], HouseType):
+            house_num, house_type = args[0], args[1]
             empty_cells = {
                 self._board[row][col]
                 for row, col in HOUSE_COORDS_MAP[(house_num, house_type)]
@@ -150,13 +138,13 @@ class SudokuSolver:
 
             return modified_cells
 
-        elif house_num is None and house_type is None and cell is not None:
-            # Second overload.
+        elif len(args) == 1 and isinstance(args[0], SudokuCell):
+            cell = args[0]
             return self.naked_subset(HouseType.ROW, cell).union(
                 self.naked_subset(HouseType.COL, cell), self.naked_subset(HouseType.BOX, cell))
 
-        elif house_num is None and house_type is not None and cell is not None:
-            # Third overload.
+        elif len(args) == 2 and isinstance(args[0], HouseType) and isinstance(args[1], SudokuCell):
+            house_type, cell = args[0], args[1]
             empty_cells = {
                 self._board[row][col]
                 for row, col in CELL_HOUSE_COORDS_MAP[(house_type, cell.get_row(), cell.get_col())]
@@ -186,19 +174,7 @@ class SudokuSolver:
 
         else: raise ValueError('Invalid params for method naked_subset.')
 
-    @overload
-    def hidden_subset(self, house_num: HouseNum, house_type: HouseType) -> set[SudokuCell]: ...
-    @overload
-    def hidden_subset(self, cell: SudokuCell) -> set[SudokuCell]: ...
-    @overload
-    def hidden_subset(self, house_type: HouseType, cell: SudokuCell) -> set[SudokuCell]: ...
-
-    def hidden_subset(
-        self,
-        house_num: Optional[HouseNum] = None,
-        house_type: Optional[HouseType] = None,
-        cell: SudokuCell = None
-    ) -> set[SudokuCell]:
+    def hidden_subset(self, *args, **kwargs) -> set[SudokuCell]:
         """
         Implementation for the hidden subset technique.
 
@@ -212,9 +188,8 @@ class SudokuSolver:
         :param cell: To identify the houses of the cell to search.
         :return: The cell(s) whose candidates have been modified as a consequence of finding a distinct set of cells which form a hidden subset.
         """
-
-        if house_num is not None and house_type is not None and cell is None:
-            # First overload.
+        if len(args) == 2 and isinstance(args[0], HouseNum) and isinstance(args[1], HouseType):
+            house_num, house_type = args[0], args[1]
             candidates_to_cell_map = defaultdict(set)
             for row, col in HOUSE_COORDS_MAP[(house_type, house_num)]:
                 if self._board[row][col].is_empty():
@@ -250,13 +225,13 @@ class SudokuSolver:
 
             return modified_cells
 
-        elif house_num is None and house_type is None and cell is not None:
-            # Second overload.
+        elif len(args) == 1 and isinstance(args[0], SudokuCell):
+            cell = args[0]
             return self.hidden_subset(HouseType.ROW, cell).union(
                 self.hidden_subset(HouseType.COL, cell), self.hidden_subset(HouseType.BOX, cell))
 
-        elif house_num is None and house_type is not None and cell is not None:
-            # Third overload.
+        elif len(args) == 2 and isinstance(args[0], HouseType) and isinstance(args[1], SudokuCell):
+            house_type, cell = args[0], args[1]
             candidates_to_cell_map = defaultdict(set)
             for row, col in CELL_HOUSE_COORDS_MAP[(house_type, cell.get_row(), cell.get_col())]:
                 if self._board[row][col].is_empty():
