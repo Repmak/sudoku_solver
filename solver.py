@@ -11,11 +11,14 @@ from utils import HOUSE_COORDS_MAP, CELL_HOUSE_COORDS_MAP
 
 class SudokuSolver:
     def __init__(self):
-        self._board = []  # The current state of the board.
+        self._board = []
         self._setup_complete = False
 
     def __str__(self):
-        return "\n".join(" ".join(row) for row in self._board)
+        return "\n".join([" ".join([str(cell.get_value() if not cell.is_empty() else " ") for cell in row]) for row in self._board])
+
+    def get_board(self):
+        return self._board
 
     def setup_board(self, givens: str) -> None:
         if len(givens) != 81: raise ValueError("Invalid board state.")
@@ -50,8 +53,7 @@ class SudokuSolver:
         return True
 
     def solve(self) -> bool:
-        if not self._setup_complete:
-            raise ValueError("Board setup not complete.")
+        if not self._setup_complete: raise ValueError("Board setup not complete.")
 
         while not self.is_complete():
             '''

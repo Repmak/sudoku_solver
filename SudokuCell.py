@@ -9,8 +9,8 @@ class SudokuCell:
         self._candidates = {i for i in range(1, 10)}  # The set of valid values for this cell.
 
     def __str__(self):
-        return f"R{self._row + 1}C{self._col + 1}), Value: {self._value}" \
-            if self._value else f"R{self._row + 1}C{self._col + 1}), Candidates: {self._candidates}"
+        return f"R{self._row + 1}C{self._col + 1}, Value: {self._value}" \
+            if self._value else f"R{self._row + 1}C{self._col + 1}, Candidates: {self._candidates}"
 
     def get_row(self):
         return self._row
