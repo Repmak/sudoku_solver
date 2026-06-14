@@ -17,14 +17,21 @@ class SudokuSolver:
     def __str__(self):
         return "\n".join(" ".join(row) for row in self._board)
 
-    def setup_board(self, givens):
-        # Reset board.
-        self._board = [[SudokuCell(row, col) for col in range(9)] for row in range(9)]
+    def setup_board(self, givens: str) -> None:
+        if len(givens) != 81: raise ValueError("Invalid board state.")
+        self._board = [[SudokuCell(row, col) for col in range(9)] for row in range(9)]  # Reset board.
+
         # Fill in the board with given values.
-        for given in givens:
-            self._board[given[0]][given[1]].set_value(given[2])
-        # solve() can be called now.
-        self._setup_complete = True
+        for i, char in enumerate(givens):
+            if not (char == '.' or char == ' ' or char == '0'):
+                self._board[i // 9][i % 9].set_value(int(char))
+                # Remove this value from the candidates of other cells in the given's house.
+                candidate_to_remove = {int(char)}
+                for ht in HouseType:
+                    for row, col in CELL_HOUSE_COORDS_MAP[(ht, i // 9, i % 9)]:
+                        self._board[row][col].remove_candidates(candidate_to_remove)
+
+        self._setup_complete = True  # solve() can be called now.
 
     def is_complete(self):
         to_compare = {i for i in range(1, 10)}
@@ -42,13 +49,14 @@ class SudokuSolver:
 
         return True
 
-    def solve(self):
-        if not self._setup_complete: return False
+    def solve(self) -> bool:
+        if not self._setup_complete:
+            raise ValueError("Board setup not complete.")
 
         while not self.is_complete():
             '''
             This queue will be used to store SudokuCell instances that have been modified when applying solving
-            techniques, and need to be checked again to see if the alterations propagate to finding new cell values.
+            techniques. These need to be checked to see if the alterations propagate to finding new cell values.
             '''
             queue = deque()
             queue_set = set()  # To avoid adding a cell already present in the queue again.
@@ -73,7 +81,7 @@ class SudokuSolver:
     # --- PUZZLE SOLVING TECHNIQUES ---
 
     def fill_cell(self, cell: SudokuCell) -> bool:
-        if cell.get_candidate_count() > 1: return False
+        if cell.get_candidate_count() > 1: return False  # Exit if the cell has more than one candidate.
         for ht in HouseType:
             for row, col in CELL_HOUSE_COORDS_MAP[(ht, cell.get_row(), cell.get_col())]:
                 if self._board[row][col] != cell:

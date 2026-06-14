@@ -5,8 +5,8 @@ class SudokuCell:
     def __init__(self, row, col, value=EMPTY_CELL):
         self._row = row  # Cannot be modified.
         self._col = col  # Cannot be modified.
-        self._value = value  # The current digit of this cell.
-        self._candidates = set()  # The set of valid digits for this cell.
+        self._value = value  # The current value of this cell.
+        self._candidates = {i for i in range(1, 10)}  # The set of valid values for this cell.
 
     def __str__(self):
         return f"R{self._row + 1}C{self._col + 1}), Value: {self._value}" \
@@ -38,9 +38,8 @@ class SudokuCell:
         return candidates.issubset(self._candidates)
 
     def add_candidate(self, candidate: int) -> bool:
-        if candidate in self._candidates:
-            # The candidate is already present.
-            # Selection statement not needed for safety, just to satisfy returning a boolean.
+        if candidate in self._candidates or not self.is_empty():
+            # The candidate is already present, or cell is already solved.
             return False
         self._candidates.add(candidate)
         return True
