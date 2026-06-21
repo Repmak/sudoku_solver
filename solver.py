@@ -1,6 +1,6 @@
 import itertools
 from collections import deque, defaultdict
-from functools import reduce
+from functools import reduce, singledispatchmethod
 from typing import overload, Optional
 
 from SudokuCell import SudokuCell, EMPTY_CELL
@@ -90,7 +90,8 @@ class SudokuSolver:
                     self._board[row][col].remove_candidates(cell.get_candidates())
         cell.set_value(list(cell.get_candidates())[0])
 
-    def naked_subset(self, *args, **kwargs) -> set[SudokuCell]:
+    @singledispatchmethod
+    def naked_subset(self, arg, *args, **kwargs):
         """
         Implementation for the naked subset technique.
 
@@ -98,83 +99,101 @@ class SudokuSolver:
         A naked pair occurs when 2 cells in a house share the same 2 candidates.
         A naked triple occurs when 3 cells in a house share the same 3 candidates.
         Etc.
+        """
+        raise (ValueError('Invalid params for method naked_subset.'))
+
+    @naked_subset.register
+    def _(self, house_num: HouseNum, house_type: HouseType) -> set[SudokuCell]:
+        """
+        Searches the specified house for naked subsets of size 1, 2, 3, or 4.
 
         :param house_num: To identify the house to search.
+        :param house_type: To identify the house to search.
+        :return: The cell(s) whose candidates have been modified as a consequence of finding a distinct set of cells which form a naked subset.
+        """
+        empty_cells = {
+            self._board[row][col]
+            for row, col in HOUSE_COORDS_MAP[(house_num, house_type)]
+            if self._board[row][col].is_empty()
+        }
+        already_used_cells = set()  # Cells that have been added to a naked subset.
+        modified_cells = set()  # Cells whose candidates have been modified as a consequence of finding a naked subset.
+
+        # Iterate through the subset sizes.
+        for subset_size in range(2, 5):
+            # Iterate through the combinations of cell subsets that can be formed for a given size.
+            for subset_tuple in itertools.combinations(empty_cells, subset_size):
+                subset = set(subset_tuple)
+
+                # Skip over cells that have previously been matched in a naked subset.
+                if any(c in already_used_cells for c in subset):
+                    continue
+
+                # Check if len(union of candidates across the subset) == subset_size.
+                union_of_candidates = reduce(lambda x, y: x.union(y),
+                                             [subset_cell.get_candidates() for subset_cell in subset])
+                if len(union_of_candidates) == subset_size:
+                    print(f'Found naked subset (cells: {"; ".join([str(c) for c in subset])}).')
+                    already_used_cells.update(subset)
+
+                    # Remove the candidates in the other cells.
+                    for other_cell in empty_cells - subset:
+                        if other_cell.remove_candidates(union_of_candidates):
+                            modified_cells.add(other_cell)
+
+        return modified_cells
+
+    @naked_subset.register
+    def _(self, cell: SudokuCell) -> set[SudokuCell]:
+        """
+        Searches the specified cell's 3 houses for naked subsets of size 1, 2, 3, or 4.
+
+        :param cell: To identify the houses of the cell to search.
+        :return: The cell(s) whose candidates have been modified as a consequence of finding a distinct set of cells which form a naked subset.
+        """
+        return self.naked_subset(HouseType.ROW, cell).union(
+            self.naked_subset(HouseType.COL, cell), self.naked_subset(HouseType.BOX, cell))
+
+    @naked_subset.register
+    def _(self, house_type: HouseType, cell: SudokuCell) -> set[SudokuCell]:
+        """
+        Searches the specified house of a cell for naked subsets of size 1, 2, 3, or 4.
+
         :param house_type: To identify the house to search.
         :param cell: To identify the houses of the cell to search.
         :return: The cell(s) whose candidates have been modified as a consequence of finding a distinct set of cells which form a naked subset.
         """
-        if len(args) == 2 and isinstance(args[0], HouseNum) and isinstance(args[1], HouseType):
-            house_num, house_type = args[0], args[1]
-            empty_cells = {
-                self._board[row][col]
-                for row, col in HOUSE_COORDS_MAP[(house_num, house_type)]
-                if self._board[row][col].is_empty()
-            }
-            already_used_cells = set()  # Cells that have been added to a naked subset.
-            modified_cells = set()  # Cells whose candidates have been modified as a consequence of finding a naked subset.
+        empty_cells = {
+            self._board[row][col]
+            for row, col in CELL_HOUSE_COORDS_MAP[(house_type, cell.get_row(), cell.get_col())]
+            if self._board[row][col].is_empty() and self._board[row][col] != cell
+            # Note that the cell param is excluded, but will be added later.
+        }
+        modified_cells = set()  # Cells whose candidates have been modified as a consequence of finding a naked subset.
 
-            # Iterate through the subset sizes.
-            for subset_size in range(2, 5):
-                # Iterate through the combinations of cell subsets that can be formed for a given size.
-                for subset_tuple in itertools.combinations(empty_cells, subset_size):
-                    subset = set(subset_tuple)
+        # Iterate through the subset sizes.
+        for subset_size in range(2, 5):
+            # Iterate through the combinations of subsets that can be formed for a given size.
+            for subset_tuple_excluding_cell in itertools.combinations(empty_cells,
+                                                                      subset_size - 1):  # Subset size is reduced by 1 since the cell param is added to the subset later.
+                cell_subset = set(subset_tuple_excluding_cell) | {cell}
 
-                    # Skip over cells that have previously been matched in a naked subset.
-                    if any(c in already_used_cells for c in subset):
-                        continue
+                # Check if len(union of candidates across the subset) == subset_size.
+                union_of_candidates = reduce(lambda x, y: x.union(y),
+                                             [subset_cell.get_candidates() for subset_cell in cell_subset])
+                if len(union_of_candidates) == subset_size:
+                    print(f'Found naked subset (cells: {"; ".join([str(c) for c in cell_subset])}).')
 
-                    # Check if len(union of candidates across the subset) == subset_size.
-                    union_of_candidates = reduce(lambda x, y: x.union(y),
-                                                 [subset_cell.get_candidates() for subset_cell in subset])
-                    if len(union_of_candidates) == subset_size:
-                        print(f'Found naked subset (cells: {"; ".join([str(c) for c in subset])}).')
-                        already_used_cells.update(subset)
+                    # Remove the candidates in the other cells.
+                    for other_cell in empty_cells - cell_subset:
+                        if other_cell.remove_candidates(union_of_candidates):
+                            modified_cells.add(other_cell)
+                    return modified_cells  # Return early once the cell param gets matched to a naked subset.
 
-                        # Remove the candidates in the other cells.
-                        for other_cell in empty_cells - subset:
-                            if other_cell.remove_candidates(union_of_candidates):
-                                modified_cells.add(other_cell)
+        return modified_cells  # This should always return an empty set.
 
-            return modified_cells
-
-        elif len(args) == 1 and isinstance(args[0], SudokuCell):
-            cell = args[0]
-            return self.naked_subset(HouseType.ROW, cell).union(
-                self.naked_subset(HouseType.COL, cell), self.naked_subset(HouseType.BOX, cell))
-
-        elif len(args) == 2 and isinstance(args[0], HouseType) and isinstance(args[1], SudokuCell):
-            house_type, cell = args[0], args[1]
-            empty_cells = {
-                self._board[row][col]
-                for row, col in CELL_HOUSE_COORDS_MAP[(house_type, cell.get_row(), cell.get_col())]
-                if self._board[row][col].is_empty() and self._board[row][col] != cell  # Note that the cell param is excluded, but will be added later.
-            }
-            modified_cells = set()  # Cells whose candidates have been modified as a consequence of finding a naked subset.
-
-            # Iterate through the subset sizes.
-            for subset_size in range(2, 5):
-                # Iterate through the combinations of subsets that can be formed for a given size.
-                for subset_tuple_excluding_cell in itertools.combinations(empty_cells, subset_size - 1): # Subset size is reduced by 1 since the cell param is added to the subset later.
-                    cell_subset = set(subset_tuple_excluding_cell) | {cell}
-
-                    # Check if len(union of candidates across the subset) == subset_size.
-                    union_of_candidates = reduce(lambda x, y: x.union(y),
-                                                 [subset_cell.get_candidates() for subset_cell in cell_subset])
-                    if len(union_of_candidates) == subset_size:
-                        print(f'Found naked subset (cells: {"; ".join([str(c) for c in cell_subset])}).')
-
-                        # Remove the candidates in the other cells.
-                        for other_cell in empty_cells - cell_subset:
-                            if other_cell.remove_candidates(union_of_candidates):
-                                modified_cells.add(other_cell)
-                        return modified_cells  # Return early once the cell param gets matched to a naked subset.
-
-            return modified_cells  # This should always return an empty set.
-
-        else: raise ValueError('Invalid params for method naked_subset.')
-
-    def hidden_subset(self, *args, **kwargs) -> set[SudokuCell]:
+    @singledispatchmethod
+    def hidden_subset(self, arg, *args, **kwargs):
         """
         Implementation for the hidden subset technique.
 
@@ -182,89 +201,104 @@ class SudokuSolver:
         A hidden pair occurs when 2 candidates appear within the same 2 cells of a house.
         A hidden triple occurs when 3 candidates appear within the same 3 cells of a house.
         Etc.
+        """
+        raise ValueError('Invalid params for method hidden_subset.')
+
+    @hidden_subset.register
+    def _(self, house_num: HouseNum, house_type: HouseType) -> set[SudokuCell]:
+        """
+        Searches the specified house for hidden subsets of size 1, 2, 3, or 4.
 
         :param house_num: To identify the house to search.
+        :param house_type: To identify the house to search.
+        :return: The cell(s) whose candidates have been modified as a consequence of finding a distinct set of cells which form a hidden subset.
+        """
+        candidates_to_cell_map = defaultdict(set)
+        for row, col in HOUSE_COORDS_MAP[(house_type, house_num)]:
+            if self._board[row][col].is_empty():
+                for candidate in self._board[row][col].get_candidates():
+                    candidates_to_cell_map[candidate].add(self._board[row][col])
+
+        house_candidates = candidates_to_cell_map.keys()
+        already_used_cells = set()  # Cells that have been added to a hidden subset.
+        already_used_candidates = set()  # Candidates that have been used to form a hidden subset.
+        modified_cells = set()  # Cells whose candidates have been modified as a consequence of finding a naked subset.
+
+        # Iterate through the subset sizes.
+        for subset_size in range(2, 5):
+            # Iterate through the combinations of candidate subsets that can be formed for a given size.
+            for candidate_subset_tuple in itertools.combinations(house_candidates, subset_size):
+                candidate_subset = set(candidate_subset_tuple)
+
+                # Skip if this combination includes a candidate that is part of a hidden subset.
+                if candidate_subset & already_used_candidates: continue
+
+                # Try to find subset_size empty cells that form a hidden subset.
+                hidden_subset_cells = set()
+                for candidate in candidate_subset:
+                    hidden_subset_cells.update(candidates_to_cell_map[candidate])
+                hidden_subset_cells -= already_used_cells
+
+                if len(hidden_subset_cells) == subset_size:
+                    for c in hidden_subset_cells:
+                        already_used_cells.add(c)
+                        if c.keep_candidates(candidate_subset):
+                            modified_cells.add(c)
+                    already_used_candidates.update(candidate_subset)
+
+        return modified_cells
+
+    @hidden_subset.register
+    def _(self, cell: SudokuCell) -> set[SudokuCell]:
+        """
+        Searches the specified cell's 3 houses for hidden subsets of size 1, 2, 3, or 4.
+
+        :param cell: To identify the houses of the cell to search.
+        :return: The cell(s) whose candidates have been modified as a consequence of finding a distinct set of cells which form a hidden subset.
+        """
+        return self.hidden_subset(HouseType.ROW, cell).union(
+            self.hidden_subset(HouseType.COL, cell), self.hidden_subset(HouseType.BOX, cell))
+
+    @hidden_subset.register
+    def _(self, house_type: HouseType, cell: SudokuCell) -> set[SudokuCell]:
+        """
+        Searches the specified house of a cell for hidden subsets of size 1, 2, 3, or 4.
+
         :param house_type: To identify the house to search.
         :param cell: To identify the houses of the cell to search.
         :return: The cell(s) whose candidates have been modified as a consequence of finding a distinct set of cells which form a hidden subset.
         """
-        if len(args) == 2 and isinstance(args[0], HouseNum) and isinstance(args[1], HouseType):
-            house_num, house_type = args[0], args[1]
-            candidates_to_cell_map = defaultdict(set)
-            for row, col in HOUSE_COORDS_MAP[(house_type, house_num)]:
-                if self._board[row][col].is_empty():
-                    for candidate in self._board[row][col].get_candidates():
-                        candidates_to_cell_map[candidate].add(self._board[row][col])
+        candidates_to_cell_map = defaultdict(set)
+        for row, col in CELL_HOUSE_COORDS_MAP[(house_type, cell.get_row(), cell.get_col())]:
+            if self._board[row][col].is_empty():
+                for candidate in self._board[row][col].get_candidates():
+                    candidates_to_cell_map[candidate].add(self._board[row][col])
 
-            house_candidates = candidates_to_cell_map.keys()
-            already_used_cells = set()  # Cells that have been added to a hidden subset.
-            already_used_candidates = set()  # Candidates that have been used to form a hidden subset.
-            modified_cells = set()  # Cells whose candidates have been modified as a consequence of finding a naked subset.
+        house_candidates = candidates_to_cell_map.keys()
+        modified_cells = set()  # Cells whose candidates have been modified as a consequence of finding a hidden subset.
 
-            # Iterate through the subset sizes.
-            for subset_size in range(2, 5):
-                # Iterate through the combinations of candidate subsets that can be formed for a given size.
-                for candidate_subset_tuple in itertools.combinations(house_candidates, subset_size):
-                    candidate_subset = set(candidate_subset_tuple)
+        # Iterate through the subset sizes.
+        for subset_size in range(2, max(5, cell.get_candidate_count() + 1)):
+            # Iterate through the combinations of candidate subsets that can be formed for a given size.
+            for candidate_subset_tuple in itertools.combinations(house_candidates, subset_size):
+                candidate_subset = set(candidate_subset_tuple)
 
-                    # Skip if this combination includes a candidate that is part of a hidden subset.
-                    if candidate_subset & already_used_candidates: continue
+                # Skip if the cell param does not have any candidates in common with candidate_subset.
+                if not (candidate_subset & cell.get_candidates()): continue
 
-                    # Try to find subset_size empty cells that form a hidden subset.
-                    hidden_subset_cells = set()
-                    for candidate in candidate_subset:
-                        hidden_subset_cells.update(candidates_to_cell_map[candidate])
-                    hidden_subset_cells -= already_used_cells
+                # Try to find subset_size empty cells (including the cell param) that form a hidden subset.
+                hidden_subset_cells = set()
+                for candidate in candidate_subset:
+                    hidden_subset_cells.update(candidates_to_cell_map[candidate])
 
+                if len(hidden_subset_cells) == subset_size:
                     if len(hidden_subset_cells) == subset_size:
                         for c in hidden_subset_cells:
-                            already_used_cells.add(c)
                             if c.keep_candidates(candidate_subset):
                                 modified_cells.add(c)
-                        already_used_candidates.update(candidate_subset)
+                    return modified_cells  # Return early once the cell param gets matched to a hidden subset.
 
-            return modified_cells
-
-        elif len(args) == 1 and isinstance(args[0], SudokuCell):
-            cell = args[0]
-            return self.hidden_subset(HouseType.ROW, cell).union(
-                self.hidden_subset(HouseType.COL, cell), self.hidden_subset(HouseType.BOX, cell))
-
-        elif len(args) == 2 and isinstance(args[0], HouseType) and isinstance(args[1], SudokuCell):
-            house_type, cell = args[0], args[1]
-            candidates_to_cell_map = defaultdict(set)
-            for row, col in CELL_HOUSE_COORDS_MAP[(house_type, cell.get_row(), cell.get_col())]:
-                if self._board[row][col].is_empty():
-                    for candidate in self._board[row][col].get_candidates():
-                        candidates_to_cell_map[candidate].add(self._board[row][col])
-
-            house_candidates = candidates_to_cell_map.keys()
-            modified_cells = set()  # Cells whose candidates have been modified as a consequence of finding a hidden subset.
-
-            # Iterate through the subset sizes.
-            for subset_size in range(2, max(5, cell.get_candidate_count() + 1)):
-                # Iterate through the combinations of candidate subsets that can be formed for a given size.
-                for candidate_subset_tuple in itertools.combinations(house_candidates, subset_size):
-                    candidate_subset = set(candidate_subset_tuple)
-
-                    # Skip if the cell param does not have any candidates in common with candidate_subset.
-                    if not (candidate_subset & cell.get_candidates()): continue
-
-                    # Try to find subset_size empty cells (including the cell param) that form a hidden subset.
-                    hidden_subset_cells = set()
-                    for candidate in candidate_subset:
-                        hidden_subset_cells.update(candidates_to_cell_map[candidate])
-
-                    if len(hidden_subset_cells) == subset_size:
-                        if len(hidden_subset_cells) == subset_size:
-                            for c in hidden_subset_cells:
-                                if c.keep_candidates(candidate_subset):
-                                    modified_cells.add(c)
-                        return modified_cells  # Return early once the cell param gets matched to a hidden subset.
-
-            return modified_cells  # This should always return an empty set.
-
-        else: raise ValueError('Invalid params for method hidden_subset.')
+        return modified_cells  # This should always return an empty set.
 
     def pointing_pairs(self):
         #
