@@ -17,16 +17,6 @@ class SudokuCell:
         return f"R{self._row + 1}C{self._col + 1}, Value: {self._value}" \
             if self._value else f"R{self._row + 1}C{self._col + 1}, Candidates: {self._candidates}"
 
-    def __eq__(self, other):
-        if not isinstance(other, SudokuCell):
-            return NotImplemented
-        return (
-            self._row == other._row and
-            self._col == other._col and
-            self._value == other._value and
-            self._candidates == other._candidates
-        )
-
     def get_row(self):
         return self._row
 
