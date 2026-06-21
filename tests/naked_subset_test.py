@@ -13,13 +13,13 @@ GIVENS = "5..62..37..489........5....93........2....6.57.......3.....9.........7
 
 class TestSum(unittest.TestCase):
 
-    def test_naked_triple_first_overload(self):
+    def test_naked_triple_dispatch_1(self):
         self.assertEquals(1, 1)
 
-    def test_naked_triple_second_overload(self):
+    def test_naked_triple_dispatch_2(self):
         self.assertEquals(1, 1)
 
-    def test_naked_triple_third_overload(self):
+    def test_naked_triple_dispatch_3(self):
         self.assertEquals(1, 1)
 
 
