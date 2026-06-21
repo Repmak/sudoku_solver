@@ -2,15 +2,30 @@
 EMPTY_CELL = 0
 
 class SudokuCell:
-    def __init__(self, row, col, value=EMPTY_CELL):
+    def __init__(self, row, col, value=EMPTY_CELL, candidates=None):
         self._row = row  # Cannot be modified.
         self._col = col  # Cannot be modified.
         self._value = value  # The current value of this cell.
-        self._candidates = {i for i in range(1, 10)}  # The set of valid values for this cell.
+
+        # The set of valid values for this cell.
+        if not candidates:
+            self._candidates = {i for i in range(1, 10)}
+        else:
+            self._candidates = candidates
 
     def __str__(self):
         return f"R{self._row + 1}C{self._col + 1}, Value: {self._value}" \
             if self._value else f"R{self._row + 1}C{self._col + 1}, Candidates: {self._candidates}"
+
+    def __eq__(self, other):
+        if not isinstance(other, SudokuCell):
+            return NotImplemented
+        return (
+            self._row == other._row and
+            self._col == other._col and
+            self._value == other._value and
+            self._candidates == other._candidates
+        )
 
     def get_row(self):
         return self._row
