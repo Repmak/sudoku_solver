@@ -20,6 +20,11 @@ class SudokuSolver:
     def get_board(self):
         return self._board
 
+    def get_cell(self, row, col):
+        if 0 <= row < 9 and 0 <= col < 9:
+            return self._board[row][col]
+        return None
+
     def setup_board(self, givens: str) -> None:
         if len(givens) != 81: raise ValueError("Invalid board state.")
         self._board = [[SudokuCell(row, col) for col in range(9)] for row in range(9)]  # Reset board.
@@ -27,12 +32,12 @@ class SudokuSolver:
         # Fill in the board with given values.
         for i, char in enumerate(givens):
             if not (char == '.' or char == ' ' or char == '0'):
-                self._board[i // 9][i % 9].set_value(int(char))
+                self.get_cell(i // 9, i % 9).set_value(int(char))
                 # Remove this value from the candidates of other cells in the given's house.
                 candidate_to_remove = {int(char)}
                 for ht in HouseType:
                     for row, col in CELL_HOUSE_COORDS_MAP[(ht, i // 9, i % 9)]:
-                        self._board[row][col].remove_candidates(candidate_to_remove)
+                        self.get_cell(row, col).remove_candidates(candidate_to_remove)
 
         self._setup_complete = True  # solve() can be called now.
 
@@ -44,8 +49,8 @@ class SudokuSolver:
                 seen = set()
 
                 for row, col in HOUSE_COORDS_MAP[(ht, hn)]:
-                    val = self._board[row][col].get_value()
-                    if self._board[row][col] in seen: return False
+                    val = self.get_cell(row, col).get_value()
+                    if self.get_cell(row, col) in seen: return False
                     seen.add(val)
 
                 if seen != to_compare: return False
@@ -86,8 +91,8 @@ class SudokuSolver:
         if cell.get_candidate_count() > 1: return False  # Exit if the cell has more than one candidate.
         for ht in HouseType:
             for row, col in CELL_HOUSE_COORDS_MAP[(ht, cell.get_row(), cell.get_col())]:
-                if self._board[row][col] != cell:
-                    self._board[row][col].remove_candidates(cell.get_candidates())
+                if self.get_cell(row, col) != cell:
+                    self.get_cell(row, col).remove_candidates(cell.get_candidates())
         cell.set_value(list(cell.get_candidates())[0])
 
     @singledispatchmethod
@@ -112,9 +117,9 @@ class SudokuSolver:
         :return: The cell(s) whose candidates have been modified as a consequence of finding a distinct set of cells which form a naked subset.
         """
         empty_cells = {
-            self._board[row][col]
+            self.get_cell(row, col)
             for row, col in HOUSE_COORDS_MAP[(house_num, house_type)]
-            if self._board[row][col].is_empty()
+            if self.get_cell(row, col).is_empty()
         }
         already_used_cells = set()  # Cells that have been added to a naked subset.
         modified_cells = set()  # Cells whose candidates have been modified as a consequence of finding a naked subset.
@@ -164,9 +169,9 @@ class SudokuSolver:
         :return: The cell(s) whose candidates have been modified as a consequence of finding a distinct set of cells which form a naked subset.
         """
         empty_cells = {
-            self._board[row][col]
+            self.get_cell(row, col)
             for row, col in CELL_HOUSE_COORDS_MAP[(house_type, cell.get_row(), cell.get_col())]
-            if self._board[row][col].is_empty() and self._board[row][col] != cell
+            if self.get_cell(row, col).is_empty() and self.get_cell(row, col) != cell
             # Note that the cell param is excluded, but will be added later.
         }
         modified_cells = set()  # Cells whose candidates have been modified as a consequence of finding a naked subset.
@@ -215,9 +220,9 @@ class SudokuSolver:
         """
         candidates_to_cell_map = defaultdict(set)
         for row, col in HOUSE_COORDS_MAP[(house_type, house_num)]:
-            if self._board[row][col].is_empty():
-                for candidate in self._board[row][col].get_candidates():
-                    candidates_to_cell_map[candidate].add(self._board[row][col])
+            if self.get_cell(row, col).is_empty():
+                for candidate in self.get_cell(row, col).get_candidates():
+                    candidates_to_cell_map[candidate].add(self.get_cell(row, col))
 
         house_candidates = candidates_to_cell_map.keys()
         already_used_cells = set()  # Cells that have been added to a hidden subset.
@@ -270,9 +275,9 @@ class SudokuSolver:
         """
         candidates_to_cell_map = defaultdict(set)
         for row, col in CELL_HOUSE_COORDS_MAP[(house_type, cell.get_row(), cell.get_col())]:
-            if self._board[row][col].is_empty():
-                for candidate in self._board[row][col].get_candidates():
-                    candidates_to_cell_map[candidate].add(self._board[row][col])
+            if self.get_cell(row, col).is_empty():
+                for candidate in self.get_cell(row, col).get_candidates():
+                    candidates_to_cell_map[candidate].add(self.get_cell(row, col))
 
         house_candidates = candidates_to_cell_map.keys()
         modified_cells = set()  # Cells whose candidates have been modified as a consequence of finding a hidden subset.

@@ -8,7 +8,7 @@ solver.setup_board(GIVENS)
 
 print(solver)
 
-modified_cells = solver.hidden_subset(HouseType.COL, solver.get_board()[3][5])
+modified_cells = solver.hidden_subset(solver.get_board()[3][5])
 
 for cell in modified_cells:
     print(cell)
